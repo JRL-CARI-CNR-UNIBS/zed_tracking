@@ -1,0 +1,16 @@
+<launch>
+
+  <arg name="svo_file"          default="" /> <!-- <arg name="svo_file" default="path/to/svo/file.svo"> -->
+  <arg name="stream"            default="" /> <!-- <arg name="stream" default="<ip_address>:<port>"> -->
+  <arg name="camera_model"      default="zed2" />
+  <arg name="camera_name"       default="zed2" />
+
+  <!-- Launch ZED camera wrapper -->
+  <include file="$(find zed_wrapper)/launch/$(arg camera_model).launch">
+    <arg name="camera_model"    value="$(arg camera_model)" />
+    <arg name="camera_name"     value="$(arg camera_name)" />
+    <arg name="svo_file"        value="$(arg svo_file)" />
+    <arg name="stream"          value="$(arg stream)" />
+  </include>
+
+</launch>

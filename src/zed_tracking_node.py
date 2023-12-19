@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import rospy
 from std_msgs.msg import String
+import utils
 
 
 def main():
@@ -103,6 +104,7 @@ def main():
 
 if __name__ == '__main__':
     try:
-        main()
+        # main()
+        pass
     except rospy.ROSInterruptException:
         pass
