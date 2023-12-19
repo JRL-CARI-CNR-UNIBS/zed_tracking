@@ -1,16 +1,63 @@
 <launch>
+  <!-- Camera Model and Name -->
+  <arg name="camera_name"           default="zed2" /> <!-- The name you want -->
+  <arg name="camera_model"          default="zed2" /> <!-- 'zed' or 'zedm' or 'zed2' -->
+  <arg name="node_name"             default="zed2_node" />
 
-  <arg name="svo_file"          default="" /> <!-- <arg name="svo_file" default="path/to/svo/file.svo"> -->
-  <arg name="stream"            default="" /> <!-- <arg name="stream" default="<ip_address>:<port>"> -->
-  <arg name="camera_model"      default="zed2" />
-  <arg name="camera_name"       default="zed2" />
+  <!-- Load SVO file -->
+  <arg name="svo_file"              default="" /><!-- <arg name="svo_file" default="path/to/svo/file.svo"> -->
+  <!-- Remote stream -->
+  <arg name="stream"                default="" /> <!-- <arg name="stream" default="<ip_address>:<port>"> -->
+
+  <!-- Base frame -->
+  <arg name="base_frame"            default="base_link" />
+
+  <!-- Publish ZED urdf -->
+  <arg name="publish_urdf"          default="true" />
+
+  <arg name="camera_id"             default="0" />
+  <arg name="gpu_id"                default="-1" />
+
+  <!-- Position respect to base frame (i.e. "base_link) -->
+  <arg name="cam_pos_x"             default="0.0" />
+  <arg name="cam_pos_y"             default="0.0" />
+  <arg name="cam_pos_z"             default="0.0" />
+
+  <!-- Orientation respect to base frame (i.e. "base_link) -->
+  <arg name="cam_roll"              default="0.0" />
+  <arg name="cam_pitch"             default="0.0" />
+  <arg name="cam_yaw"               default="0.0" />
 
   <!-- Launch ZED camera wrapper -->
   <include file="$(find zed_tracking)/launch/camera.launch">
-    <arg name="camera_model"    value="$(arg camera_model)" />
-    <arg name="camera_name"     value="$(arg camera_name)" />
-    <arg name="svo_file"        value="$(arg svo_file)" />
-    <arg name="stream"          value="$(arg stream)" />
+    <!-- Camera Model and Name -->
+    <arg name="camera_name"           value="$(arg camera_name)" /> <!-- The name you want -->
+    <arg name="camera_model"          value="$(arg camera_model)" /> <!-- 'zed' or 'zedm' or 'zed2' -->
+    <arg name="node_name"             value="$(arg node_name)" />
+
+    <!-- Load SVO file -->
+    <arg name="svo_file"              value="$(arg svo_file)" /><!-- <arg name="svo_file" value="path/to/svo/file.svo"> -->
+    <!-- Remote stream -->
+    <arg name="stream"                value="$(arg stream)" /> <!-- <arg name="stream" value="<ip_address>:<port>"> -->
+
+    <!-- Base frame -->
+    <arg name="base_frame"            value="$(arg base_frame)" />
+
+    <!-- Publish ZED urdf -->
+    <arg name="publish_urdf"          value="$(arg publish_urdf)" />
+
+    <arg name="camera_id"             value="$(arg camera_id)" />
+    <arg name="gpu_id"                value="$(arg gpu_id)" />
+
+    <!-- Position respect to base frame (i.e. "base_link) -->
+    <arg name="cam_pos_x"             value="$(arg cam_pos_x)" />
+    <arg name="cam_pos_y"             value="$(arg cam_pos_y)" />
+    <arg name="cam_pos_z"             value="$(arg cam_pos_z)" />
+
+    <!-- Orientation respect to base frame (i.e. "base_link) -->
+    <arg name="cam_roll"              value="$(arg cam_roll)" />
+    <arg name="cam_pitch"             value="$(arg cam_pitch)" />
+    <arg name="cam_yaw"               value="$(arg cam_yaw)" />
   </include>
 
   <!-- Launch skeleton tracking node -->
@@ -18,7 +65,7 @@
     <param name="camera_name" type="str" value="$(arg camera_name)" />
   </node>
 
-  <!-- Load parameters for the skeleton tracking node. This OVERRIDES the values previously set by other nodes' inner rosparam commands -->
-  <rosparam command="load" file="$(find zed_tracking)/config/tracking_config.yaml" />
+  <!-- Launch rivz display -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find zed_tracking)/config/view_camera.rviz" output="screen" />
 
 </launch>
