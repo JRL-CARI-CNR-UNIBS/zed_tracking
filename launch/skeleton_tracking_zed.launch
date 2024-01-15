@@ -1,0 +1,17 @@
+<launch>
+  <arg name="camera_name"           default="zed2" /> <!-- The name you want -->
+  <arg name="node_name"             default="zed2_node" />
+
+  <rosparam command="load" file="$(find zed_tracking)/config/camera_config.yaml" ns="/zed2_node"/>
+
+  <!-- Launch skeleton tracking node -->
+  <node name="$(arg camera_name)_skeleton_tracking" pkg="zed_tracking" type="zed_tracking_node.py"  output="screen" >
+    <param name="camera_node_name" type="str" value="$(arg node_name)" />
+    <param name="node_name" type="str" value="zed_tracking_node" />
+    <rosparam command="load" file="$(find zed_tracking)/config/tracking_config.yaml" />
+  </node>
+
+  <!-- Launch rviz -->
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find zed_tracking)/config/zed_tracking.rviz" output="screen" /> -->
+
+</launch>

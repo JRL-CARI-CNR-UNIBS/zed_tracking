@@ -62,10 +62,12 @@
 
   <!-- Launch skeleton tracking node -->
   <node name="$(arg camera_name)_skeleton_tracking" pkg="zed_tracking" type="zed_tracking_node.py"  output="screen" >
-    <param name="camera_name" type="str" value="$(arg camera_name)" />
+    <param name="camera_node_name" type="str" value="$(arg node_name)" />
+    <param name="node_name" type="str" value="zed_tracking_node" />
+    <rosparam command="load" file="$(find zed_tracking)/config/tracking_config.yaml" />
   </node>
 
   <!-- Launch rivz display -->
-  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find zed_tracking)/config/view_camera.rviz" output="screen" />
+  <!-- <node name="rviz" pkg="rviz" type="rviz" args="-d $(find zed_tracking)/config/view_camera.rviz" output="screen" /> -->
 
 </launch>

@@ -1,18 +1,14 @@
-camera_params: 
-  camera_resolution: HD1080
-  depth_mode: PERFORMANCE
-  unit: METER
-  sdk_verbose: 1
-
-tracking_params:
-  detection_model: HUMAN_BODY_FAST
-  enable_tracking: True
+body_params: # (https://www.stereolabs.com/docs/body-tracking/using-body-tracking)
+  detection_model: HUMAN_BODY_FAST              # HUMAN_BODY_FAST, HUMAN_BODY_MEDIUM, HUMAN_BODY_ACCURATE 
+  enable_body_fitting: True                     # Enables the fitting process of each detected person
+  body_format: BODY_38                          # BODY_18, BODY_34, BODY_38
+                                                # (from 34 keypoints to 70 keypoints, enable_body_fitting must be True)
+  enable_tracking: True                         # To track persons’ motion within their environment 
   image_sync: True
   enable_segmentation: False
-  enable_body_fitting: True
   set_as_static: True
   set_floor_as_origin: True
-  detection_confidence_threshold: 40
 
-ros_params:
-  node_name: zed_tracking_node
+body_runtime_params:
+  measure3D_reference_frame: CAMERA              # WORLD, CAMERA
+  detection_confidence_threshold: 40

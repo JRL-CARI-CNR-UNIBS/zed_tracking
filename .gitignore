@@ -1,2 +1,6 @@
 # VS Code configuration files
 .vscode/
+
+# json and svo files
+*.json
+*.svo

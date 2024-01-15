@@ -35,6 +35,7 @@ general:
     camera_model:               'zed2'    # SPECIFIC TO ZED2
     grab_resolution:            'HD1080'  # SPECIFIC TO ZED2    # 'HD2K', 'HD1080', 'HD720', 'VGA', 'AUTO'
     grab_frame_rate:            30        # SPECIFIC TO ZED2    # Frequency of frame grabbing for internal SDK operations
+    unit:                       'METER'   # ADDED               # 'MILLIMETER', 'CENTIMETER', 'METER', 'INCH', 'FOOT'
 
 #video:
 

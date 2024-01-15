@@ -1,98 +1,79 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import pyzed.sl as sl
-import rospy
 from utils import *
 
+logger = create_logger('SkeletonTracker', level=logging.INFO)
 
 @dataclass
 class SkeletonTracker:
-    # Class variable definition
-    camera: sl.Camera
-    init_params: sl.InitParameters
-    body_params: sl.BodyTrackingParameters
-    positional_tracking_param: sl.PositionalTrackingParameters
-    bodies: sl.Bodies
-    body_runtime_params: sl.BodyTrackingRuntimeParameters
-    skeleton_pub: rospy.Publisher
-
-    def __init__(self):
-        # Create a Camera object
-        self.camera = sl.Camera()
-        
-        # Create a InitParameters object and set configuration parameters
-        self.set_init_params()
-
-        # Create a BodyTrackingParameters object and set configuration parameters
-        self.set_body_params()
-
-        # Create a Bodies object to retrieve detected people
-        self.bodies = sl.Bodies()
-
-        # Create a BodyTrackingRuntimeParameters object and set configuration parameters
-        self.set_body_runtime_params()
+    camera: sl.Camera \
+        = field(default=sl.Camera())
+    init_params: sl.InitParameters \
+        = field(default=sl.InitParameters())
+    body_params: sl.BodyTrackingParameters \
+        = field(default=sl.BodyTrackingParameters())
+    positional_tracking_param: sl.PositionalTrackingParameters \
+        = field(default=sl.PositionalTrackingParameters())
+    bodies: sl.Bodies \
+        = field(default=sl.Bodies())
+    body_runtime_params: sl.BodyTrackingRuntimeParameters \
+        = field(default=sl.BodyTrackingRuntimeParameters())
     
 
-    def set_init_params(self):
-        self.init_params = sl.InitParameters()
-
-        self.init_params.camera_resolution = sl.RESOLUTION[read_param('camera_params/camera_resolution',
-                                                                      default_value='HD1080')]
-
-        self.init_params.depth_mode = sl.DEPTH_MODE[read_param('camera_params/depth_mode',
-                                                               default_value='PERFORMANCE')]
-        self.init_params.coordinate_units = sl.UNIT[read_param('camera_params/unit',
-                                                               default_value='METER')]
-        self.init_params.sdk_verbose = read_param('camera_params/sdk_verbose',
-                                                  default_value=1)
-        
-        rospy.loginfo("Camera Open: Loading Module...")
-        if not self.camera.is_opened():
-            
-            err = self.camera.open(self.init_params)
-            if err != sl.ERROR_CODE.SUCCESS:
-                rospy.logerr("Camera Open : "+repr(err)+". Exit program.")
-                exit()
+    def load_parameters(self, camera_params, tracking_params):
+        # Camera parameters
+        if camera_params['general']['grab_resolution'] in ['HD2K', 'HD1080', 'HD720', 'VGA', 'AUTO']:
+            self.init_params.camera_resolution = sl.RESOLUTION[camera_params['general']['grab_resolution']]
         else:
-            rospy.loginfo("Camera Open: Already opened")
+            self.init_params.camera_resolution = sl.RESOLUTION.AUTO
+            logger.warning("Camera Open: No resolution specified. Defaulting to AUTO.")
 
+        self.init_params.camera_fps = camera_params['general']['grab_frame_rate']
+        self.init_params.coordinate_units = sl.UNIT[camera_params['general']['unit']]
+        self.init_params.sdk_verbose = camera_params['general']['sdk_verbose']
+        self.init_params.depth_mode = sl.DEPTH_MODE[camera_params['depth']['depth_mode']]
 
-    def set_body_params(self):
-        self.body_params = sl.BodyTrackingParameters()
+        # Body tracking parameters
+        # (https://www.stereolabs.com/docs/body-tracking/using-body-tracking)
+        self.body_params.detection_model = sl.BODY_TRACKING_MODEL[tracking_params['body_params']['detection_model']]
+        self.body_params.enable_body_fitting = tracking_params['body_params']['enable_body_fitting']
+        self.body_params.body_format = sl.BODY_FORMAT[tracking_params['body_params']['body_format']]
+        self.body_params.enable_tracking = tracking_params['body_params']['enable_tracking']
+        self.body_params.image_sync = tracking_params['body_params']['image_sync']
+        self.body_params.enable_segmentation = tracking_params['body_params']['enable_segmentation']
 
-        self.body_params.detection_model = sl.BODY_TRACKING_MODEL[read_param('tracking_params/detection_model',
-                                                                             default_value='HUMAN_BODY_FAST')] # optimize the runtime or the accuracy
-        self.body_params.enable_tracking = read_param('tracking_params/enable_tracking',
-                                                      default_value=True)    
-        self.body_params.image_sync = read_param('tracking_params/image_sync',
-                                                 default_value=True)
-        self.body_params.enable_segmentation = read_param('tracking_params/enable_segmentation',
-                                                          default_value=False)
-        self.body_params.enable_body_fitting = read_param('tracking_params/enable_body_fitting',
-                                                          default_value=True) # optimize the person joints position, requires more computations
-        
         if self.body_params.enable_tracking:
-            self.positional_tracking_param = sl.PositionalTrackingParameters()
-            self.positional_tracking_param.set_as_static = read_param('tracking_params/set_as_static',
-                                                                      default_value=False) # enable if the camera is static for better performance
-            self.positional_tracking_param.set_floor_as_origin = read_param('tracking_params/set_floor_as_origin',
-                                                                            default_value=True) # enable if the camera is static and the floor is the origin of the world frame
-            self.camera.enable_positional_tracking(self.positional_tracking_param) # enable positional tracking
+            self.positional_tracking_param.set_as_static = tracking_params['body_params']['set_as_static']
+            self.positional_tracking_param.set_floor_as_origin = tracking_params['body_params']['set_floor_as_origin']
 
-        rospy.loginfo("Body tracking: Loading Module...")
-        err = self.camera.enable_body_tracking(self.body_params)
-        if err != sl.ERROR_CODE.SUCCESS:
-            rospy.logerr("Enable Body Tracking : "+repr(err)+". Exit program.")
-            self.camera.close()
-            exit()
-
-
-    def set_body_runtime_params(self):
-        self.body_runtime_params = sl.BodyTrackingRuntimeParameters()
-        
+        # Body runtime parameters
         # For outdoor scene or long range, the confidence should be lowered to avoid missing detections (~20-30)
         # For indoor scene or closer range, a higher confidence limits the risk of false positives and increase the precision (~50+)
-        self.body_runtime_params.detection_confidence_threshold = read_param('detection_confidence_threshold',
-                                                                             default_value=40)
+        self.body_runtime_params.detection_confidence_threshold \
+            = tracking_params['body_runtime_params']['detection_confidence_threshold']
+
+
+    def open_camera(self):
+        logger.info("Camera Open: Loading Module...")
+        if not self.camera.is_opened():
+            err = self.camera.open(self.init_params)
+            if err != sl.ERROR_CODE.SUCCESS:
+                logger.error("Camera Open : "+repr(err)+". Exit program.")
+                exit()
+        else:
+            logger.warning("Camera Open: Already opened")
+
+
+    def load_body_tracking(self):
+        if self.body_params.enable_tracking:
+            self.camera.enable_positional_tracking(self.positional_tracking_param)
+
+        logger.info("Body tracking: Loading Module...")
+        err = self.camera.enable_body_tracking(self.body_params)
+        if err != sl.ERROR_CODE.SUCCESS:
+            logger.error("Enable Body Tracking : "+repr(err)+". Exit program.")
+            self.camera.close()
+            exit()
 
 
     def close_camera(self):
