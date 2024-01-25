@@ -4,3 +4,6 @@
 # json and svo files
 *.json
 *.svo
+
+# run files
+*.run
