@@ -67,26 +67,18 @@ RUN apt-get update || true && \
   argcomplete \
   numpy \
   empy \
-  lark && \
+  lark  && \
+  apt-get update || true && \
+  apt-get install --no-install-recommends -y \
+  python3-colcon-common-extensions && \
   rm -rf /var/lib/apt/lists/*
 
 # Initialize rosdep
 RUN rosdep init && rosdep update
 
-# Install the ZED SDK
-RUN echo "CUDA Version $CUDA_VERSION" > /usr/local/cuda/version.txt
-
-# Setup the ZED SDK
-RUN /bin/bash -c "apt-get update -y || true && \
-  apt-get install --no-install-recommends dialog bash-completion lsb-release wget less udev sudo  build-essential cmake zstd python3 python3-pip libpng-dev libgomp1 -y && \
-  python3 -m pip install --upgrade pip; python3 -m pip install numpy opencv-python-headless && \
-  wget -q -O ZED_SDK_Linux_Ubuntu.run https://download.stereolabs.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/cu${CUDA_MAJOR}${CUDA_MINOR}/ubuntu${UBUNTU_RELEASE_YEAR} && \
-  chmod +x ZED_SDK_Linux_Ubuntu.run && \
-  ./ZED_SDK_Linux_Ubuntu.run -- silent skip_tools skip_cuda && \
-  ln -sf /lib/x86_64-linux-gnu/libusb-1.0.so.0 /usr/lib/x86_64-linux-gnu/libusb-1.0.so && \
-  rm ZED_SDK_Linux_Ubuntu.run && \
-  rm -rf /var/lib/apt/lists/*"
-
+# Setup colcon argcomplete and cd for ROS2
+RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> ~/.bashrc && \
+  echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> ~/.bashrc
 
 # Setup git autocompletion and colored prompt
 RUN curl -o ~/.git-prompt.sh https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh && \
@@ -97,7 +89,7 @@ RUN curl -o ~/.git-prompt.sh https://raw.githubusercontent.com/git/git/master/co
   echo "export GIT_PS1_SHOWSTASHSTATE='y'" >> ~/.bashrc && \
   echo "export GIT_PS1_SHOWUNTRACKEDFILES='y'" >> ~/.bashrc && \
   echo "export GIT_PS1_SHOWUPSTREAM='auto'" >> ~/.bashrc && \
-  echo "export PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]$(__git_ps1)\[\033[00m\]$ '" >> ~/.bashrc
+  echo "export PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$(__git_ps1)\[\033[00m\]$ '" >> ~/.bashrc
 
 # Customize the .bashrc file adding functions and aliases
 RUN echo 'function cd {\n\tbuiltin cd "$@" && ls -F\n}' >> ~/.bashrc && \
@@ -115,14 +107,21 @@ RUN echo 'function cd {\n\tbuiltin cd "$@" && ls -F\n}' >> ~/.bashrc && \
   echo "alias sb='source ~/.bashrc'" >> ~/.bashrc && \
   echo "alias eb='code ~/.bashrc'" >> ~/.bashrc
 
+# Install and setup the ZED SDK
+RUN echo "CUDA Version $CUDA_VERSION" > /usr/local/cuda/version.txt
+RUN /bin/bash -c "apt-get update -y || true && \
+  apt-get install --no-install-recommends dialog bash-completion lsb-release wget less udev sudo  build-essential cmake zstd python3 python3-pip libpng-dev libgomp1 -y && \
+  python3 -m pip install --upgrade pip; python3 -m pip install numpy opencv-python-headless && \
+  wget -q -O ZED_SDK_Linux_Ubuntu.run https://download.stereolabs.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/cu${CUDA_MAJOR}${CUDA_MINOR}/ubuntu${UBUNTU_RELEASE_YEAR} && \
+  chmod +x ZED_SDK_Linux_Ubuntu.run && \
+  ./ZED_SDK_Linux_Ubuntu.run -- silent skip_tools skip_cuda && \
+  ln -sf /lib/x86_64-linux-gnu/libusb-1.0.so.0 /usr/lib/x86_64-linux-gnu/libusb-1.0.so && \
+  rm ZED_SDK_Linux_Ubuntu.run && \
+  rm -rf /var/lib/apt/lists/*"
+
 # Install the ZED ROS2 Wrapper
 ENV ROS_DISTRO ${ROS2_DIST}
 
-# # Copy the sources in the Docker image
-# WORKDIR /root/ros2_ws/src
-# COPY tmp_sources/ ./
-
-# RUN ls -lah /root/ros2_ws/src/
 WORKDIR /root/perception_ws/src
 
 RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
@@ -138,6 +137,23 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
   ' -DCMAKE_CXX_FLAGS="-Wl,--allow-shlib-undefined"' " && \
   rm -rf /var/lib/apt/lists/*
 
+WORKDIR /root/rosbridge_ws/src
+
+# Install ROS1 and build from source
+
+
+# Export ROS1 and ROS2 install paths
+ENV ROS1_INSTALL_PATH ~/ros_catkin_ws/install_isolated
+ENV ROS2_INSTALL_PATH /opt/ros/$ROS_DISTRO
+
+# Download and build the ROS1 bridge (https://github.com/ros2/ros1_bridge)
+RUN /bin/bash -c "apt-get update -y || true && \
+  git clone --recursive https://github.com/ros2/ros1_bridge.git && \
+  cd .. && \
+  source $ROS1_INSTALL_PATH/setup.bash && \
+  source $ROS2_INSTALL_PATH/setup.bash && \
+  colcon build --symlink-install --packages-select ros1_bridge --cmake-force-configure"
+  
 WORKDIR /root/perception_ws
 
 # Setup environment variables
