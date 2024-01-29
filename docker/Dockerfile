@@ -5,7 +5,7 @@ ARG CUDA_MINOR=0
 ARG CUDA_PATCH=0
 
 # Start building the image from the nvidia/cuda image
-FROM nvidia/cuda:${CUDA_MAJOR}.${CUDA_MINOR}.${CUDA_PATCH}-devel-ubuntu${UBUNTU_RELEASE_YEAR}.04
+FROM nvidia/cuda:${CUDA_MAJOR}.${CUDA_MINOR}.${CUDA_PATCH}-devel-ubuntu${UBUNTU_RELEASE_YEAR}.04 AS ros2_base
 
 # ARGs to be set after the FROM command (ARGs that appear before the FROM statement don't exist anymore afterwards)
 ARG UBUNTU_RELEASE_YEAR
@@ -107,6 +107,8 @@ RUN echo 'function cd {\n\tbuiltin cd "$@" && ls -F\n}' >> ~/.bashrc && \
   echo "alias sb='source ~/.bashrc'" >> ~/.bashrc && \
   echo "alias eb='code ~/.bashrc'" >> ~/.bashrc
 
+FROM ros2_base AS zed_sdk
+
 # Install and setup the ZED SDK
 RUN echo "CUDA Version $CUDA_VERSION" > /usr/local/cuda/version.txt
 RUN /bin/bash -c "apt-get update -y || true && \
@@ -137,14 +139,59 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
   ' -DCMAKE_CXX_FLAGS="-Wl,--allow-shlib-undefined"' " && \
   rm -rf /var/lib/apt/lists/*
 
-WORKDIR /root/rosbridge_ws/src
+FROM zed_sdk AS ros1_base
+
+WORKDIR /root
 
 # Install ROS1 and build from source
+RUN apt-get update || true && \
+  apt-get install --no-install-recommends -y \
+  apt-get install git gnupg wget && \
+  sudo sh -c 'echo "deb http://packages.ros.org/ros/ubuntu focal main" > /etc/apt/sources.list.d/ros-latest.list' && \
+  curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | sudo apt-key add - && \
+  apt-get update || true && \
+  apt-get install --no-install-recommends -y \
+  python3-rosdep python3-rosinstall-generator python3-vcstools python3-vcstool build-essential && \
+  wget http://archive.ubuntu.com/ubuntu/pool/universe/h/hddtemp/hddtemp_0.3-beta15-53_amd64.deb && \
+  sudo apt install /root/hddtemp_0.3-beta15-53_amd64.deb && \
+  wget https://raw.githubusercontent.com/ros/rosdistro/master/rosdep/base.yaml && \
+  sed -i 's/focal:\ \[hddtemp\]/focal:\ [hddtemp]\n\ \ \ \ jammy:\ \[hddtemp\]/' base.yaml && \
+  echo "Editing file base.yaml... DONE" && \
+  sed -i 's/https\:\/\/raw\.githubusercontent\.com\/ros\/rosdistro\/master\/rosdep\/base\.yaml/file\:\/\/\/root\/base\.yaml/' /etc/ros/rosdep/sources.list.d/20-default.list && \
+  echo "Editing file 20-default.list... DONE" && \
+  rosdep update && \
+  mkdir /root/ros_catkin_ws && \
+  cd /root/ros_catkin_ws && \
+  rosinstall_generator desktop --rosdistro noetic --deps --tar > noetic-desktop.rosinstall
+  
+WORKDIR /root/ros_catkin_ws
 
+RUN mkdir ./src && \
+  vcs import --workers 1 --input noetic-desktop.rosinstall ./src && \
+  rosdep install --from-paths ./src --ignore-packages-from-source --rosdistro noetic -y
+  
+RUN cd /root/ros_catkin_ws/src && \
+  mkdir /root/backup && \
+  mv rosconsole urdf /root/backup/ && \
+  git clone https://github.com/dreuter/rosconsole.git && \
+  cd rosconsole && \
+  git checkout noetic-jammy && \
+  cd /root/ros_catkin_ws/src && \
+  git clone https://github.com/dreuter/urdf.git && \
+  cd urdf && \
+  git checkout set-cxx-version && \
+  cd /root/ros_catkin_ws/src && \
+  export ROS_DISTRO=noetic && \
+  cd /root/ros_catkin_ws && \
+  ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
+
+FROM ros1_base AS ros1_bridge
 
 # Export ROS1 and ROS2 install paths
-ENV ROS1_INSTALL_PATH ~/ros_catkin_ws/install_isolated
+ENV ROS1_INSTALL_PATH /root/ros_catkin_ws/install_isolated
 ENV ROS2_INSTALL_PATH /opt/ros/$ROS_DISTRO
+
+WORKDIR /root/rosbridge_ws/src
 
 # Download and build the ROS1 bridge (https://github.com/ros2/ros1_bridge)
 RUN /bin/bash -c "apt-get update -y || true && \
@@ -152,7 +199,8 @@ RUN /bin/bash -c "apt-get update -y || true && \
   cd .. && \
   source $ROS1_INSTALL_PATH/setup.bash && \
   source $ROS2_INSTALL_PATH/setup.bash && \
-  colcon build --symlink-install --packages-select ros1_bridge --cmake-force-configure"
+  colcon build --symlink-install --packages-select ros1_bridge --cmake-force-configure && \
+  sudo apt-get install ros-humble-demo-nodes-cpp -y"
   
 WORKDIR /root/perception_ws
 
