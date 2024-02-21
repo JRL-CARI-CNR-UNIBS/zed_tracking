@@ -80,33 +80,7 @@ RUN rosdep init && rosdep update
 RUN echo "source /usr/share/colcon_argcomplete/hook/colcon-argcomplete.bash" >> ~/.bashrc && \
   echo "source /usr/share/colcon_cd/function/colcon_cd.sh" >> ~/.bashrc
 
-# Setup git autocompletion and colored prompt
-RUN curl -o ~/.git-prompt.sh https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh && \
-  echo "source ~/.git-prompt.sh" >> ~/.bashrc && \
-  echo "export GIT_PS1_DESCRIBE_STYLE='contains'" >> ~/.bashrc && \
-  echo "export GIT_PS1_SHOWCOLORHINTS='y'" >> ~/.bashrc && \
-  echo "export GIT_PS1_SHOWDIRTYSTATE='y'" >> ~/.bashrc && \
-  echo "export GIT_PS1_SHOWSTASHSTATE='y'" >> ~/.bashrc && \
-  echo "export GIT_PS1_SHOWUNTRACKEDFILES='y'" >> ~/.bashrc && \
-  echo "export GIT_PS1_SHOWUPSTREAM='auto'" >> ~/.bashrc && \
-  echo "export PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$(__git_ps1)\[\033[00m\]$ '" >> ~/.bashrc
-
-# Customize the .bashrc file adding functions and aliases
-RUN echo 'function cd {\n\tbuiltin cd "$@" && ls -F\n}' >> ~/.bashrc && \
-  echo "alias ll='ls -alF'" >> ~/.bashrc && \
-  echo "alias la='ls -A'" >> ~/.bashrc && \
-  echo "alias l='ls -CF'" >> ~/.bashrc && \
-  echo "alias open='xdg-open .'" >> ~/.bashrc && \
-  echo "alias gitdiff_commit='git difftool HEAD origin/HEAD'" >> ~/.bashrc && \
-  echo "alias gitdiff_lastpush='git difftool HEAD^ HEAD'" >> ~/.bashrc && \
-  echo "alias gitdiff_unstaged='git difftool'" >> ~/.bashrc && \
-  echo "alias cl='clear'" >> ~/.bashrc && \
-  echo "alias cb='catkin build -cs'" && \
-  echo "alias cct='catkin clean --this'" >> ~/.bashrc && \
-  echo "alias cbt='catkin bt -cs'" >> ~/.bashrc && \
-  echo "alias sb='source ~/.bashrc'" >> ~/.bashrc && \
-  echo "alias eb='code ~/.bashrc'" >> ~/.bashrc
-
+# =============================================== #  
 FROM ros2_base AS zed_sdk
 
 # Install and setup the ZED SDK
@@ -139,6 +113,7 @@ RUN /bin/bash -c "source /opt/ros/$ROS_DISTRO/setup.bash && \
   ' -DCMAKE_CXX_FLAGS="-Wl,--allow-shlib-undefined"' " && \
   rm -rf /var/lib/apt/lists/*
 
+# =============================================== #  
 FROM zed_sdk AS ros1_base
 
 WORKDIR /root
@@ -185,11 +160,12 @@ RUN cd /root/ros_catkin_ws/src && \
   cd /root/ros_catkin_ws && \
   ./src/catkin/bin/catkin_make_isolated --install -DCMAKE_BUILD_TYPE=Release
 
-FROM ros1_base AS ros1_bridge
-
 # Export ROS1 and ROS2 install paths
 ENV ROS1_INSTALL_PATH /root/ros_catkin_ws/install_isolated
 ENV ROS2_INSTALL_PATH /opt/ros/$ROS_DISTRO
+
+# =============================================== #  
+FROM ros1_base AS ros1_bridge
 
 WORKDIR /root/rosbridge_ws/src
 
@@ -201,8 +177,45 @@ RUN /bin/bash -c "apt-get update -y || true && \
   source $ROS2_INSTALL_PATH/setup.bash && \
   colcon build --symlink-install --packages-select ros1_bridge --cmake-force-configure && \
   sudo apt-get install ros-humble-demo-nodes-cpp -y"
-  
-WORKDIR /root/perception_ws
+
+# =============================================== #  
+FROM ros1_bridge AS system_utils
+
+# Setup git autocompletion and colored prompt
+RUN curl -o ~/.git-prompt.sh https://raw.githubusercontent.com/git/git/master/contrib/completion/git-prompt.sh && \
+  echo "source ~/.git-prompt.sh" >> ~/.bashrc && \
+  echo "export GIT_PS1_DESCRIBE_STYLE='contains'" >> ~/.bashrc && \
+  echo "export GIT_PS1_SHOWCOLORHINTS='y'" >> ~/.bashrc && \
+  echo "export GIT_PS1_SHOWDIRTYSTATE='y'" >> ~/.bashrc && \
+  echo "export GIT_PS1_SHOWSTASHSTATE='y'" >> ~/.bashrc && \
+  echo "export GIT_PS1_SHOWUNTRACKEDFILES='y'" >> ~/.bashrc && \
+  echo "export GIT_PS1_SHOWUPSTREAM='auto'" >> ~/.bashrc && \
+  echo "export PS1='\[\033[01;33m\]\u@\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[00m\]\$(__git_ps1)\[\033[00m\]$ '" >> ~/.bashrc
+
+# Customize the .bashrc file adding functions and aliases
+RUN echo 'function cd {\n\tbuiltin cd "$@" && ls -F\n}' >> ~/.bashrc && \
+  echo "alias ll='ls -alF'" >> ~/.bashrc && \
+  echo "alias la='ls -A'" >> ~/.bashrc && \
+  echo "alias l='ls -CF'" >> ~/.bashrc && \
+  echo "alias open='xdg-open .'" >> ~/.bashrc && \
+  echo "alias gitdiff_commit='git difftool HEAD origin/HEAD'" >> ~/.bashrc && \
+  echo "alias gitdiff_lastpush='git difftool HEAD^ HEAD'" >> ~/.bashrc && \
+  echo "alias gitdiff_unstaged='git difftool'" >> ~/.bashrc && \
+  echo "alias cl='clear'" >> ~/.bashrc && \
+  echo "alias catb='catkin build -cs'" && \
+  echo "alias catc='catkin clean'" >> ~/.bashrc && \
+  echo "alias colb='colcon build --symlink-install --continue-on-error'" >> ~/.bashrc && \
+  echo "alias sb='source ~/.bashrc'" >> ~/.bashrc && \
+  echo "alias eb='code ~/.bashrc'" >> ~/.bashrc
+
+# Install catkin_tools (to use catkin build)
+RUN sudo pip3 install -U catkin_tools
+
+# Install colcon clean (call "colcon clean workspace -y" within a workspace to clean it)
+RUN sudo apt install python3-colcon-clean
+
+
+WORKDIR /root
 
 # Setup environment variables
 COPY ros_entrypoint.sh /sbin/ros_entrypoint.sh
