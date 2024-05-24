@@ -90,7 +90,7 @@ RUN /bin/bash -c "apt-get update -y || true && \
   python3 -m pip install --upgrade pip; python3 -m pip install numpy opencv-python-headless && \
   wget -q -O ZED_SDK_Linux_Ubuntu.run https://download.stereolabs.com/zedsdk/${ZED_SDK_MAJOR}.${ZED_SDK_MINOR}/cu${CUDA_MAJOR}${CUDA_MINOR}/ubuntu${UBUNTU_RELEASE_YEAR} && \
   chmod +x ZED_SDK_Linux_Ubuntu.run && \
-  ./ZED_SDK_Linux_Ubuntu.run -- silent skip_tools skip_cuda && \
+  ./ZED_SDK_Linux_Ubuntu.run -- silent skip_cuda && \
   ln -sf /lib/x86_64-linux-gnu/libusb-1.0.so.0 /usr/lib/x86_64-linux-gnu/libusb-1.0.so && \
   rm ZED_SDK_Linux_Ubuntu.run && \
   rm -rf /var/lib/apt/lists/*"
@@ -190,7 +190,7 @@ RUN curl -o ~/.git-prompt.sh https://raw.githubusercontent.com/git/git/master/co
   echo "export GIT_PS1_SHOWSTASHSTATE='y'" >> ~/.bashrc && \
   echo "export GIT_PS1_SHOWUNTRACKEDFILES='y'" >> ~/.bashrc && \
   echo "export GIT_PS1_SHOWUPSTREAM='auto'" >> ~/.bashrc && \
-  echo "export PS1='\[\033[01;33m\]\u@\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[00m\]\$(__git_ps1)\[\033[00m\]$ '" >> ~/.bashrc
+  # echo "export PS1='\[\033[01;33m\]\u@\h\[\033[00m\]:\[\033[01;35m\]\w\[\033[00m\]\$(__git_ps1)\[\033[00m\]$ '" >> ~/.bashrc
 
 # Customize the .bashrc file adding functions and aliases
 RUN echo 'function cd {\n\tbuiltin cd "$@" && ls -F\n}' >> ~/.bashrc && \

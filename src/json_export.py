@@ -203,8 +203,8 @@ if __name__ == "__main__":
             sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
             break
 
-        if svo_position == 500:
-            break
+        # if svo_position == 500:
+        #     break
 
     # Save data into JSON file:
     filename = opt.input_svo_file.split("/")[-1].split(".")[0] + "_temp.json"
