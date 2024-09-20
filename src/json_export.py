@@ -19,17 +19,14 @@
 ########################################################################
 
 """
-   This sample shows how to detect a human bodies and draw their 
+   This sample shows how to detect human bodies and draw their 
    modelised skeleton in an OpenGL window
 """
-import cv2
-import sys
+import os, sys, json, argparse
 import pyzed.sl as sl
-import time
 import ogl_viewer.viewer as gl
 import numpy as np
-import json
-import argparse
+
 
 def parse_args(init, opt):
     if len(opt.input_svo_file)>0 and opt.input_svo_file.endswith(".svo"):
@@ -77,14 +74,15 @@ def progress_bar(iter, tot_iter, bar_length=50):
     percent_done = svo_position / nb_frames * 100
     done_length = int(bar_length * percent_done / 100)
     bar = '=' * done_length + '-' * (bar_length - done_length)
-    sys.stdout.write('[%s] %i%s  frame: %i / %i\r' % (bar, percent_done, '%', iter, tot_iter))
+    sys.stdout.write('[%s] %i%s  frame: %i / %i\r' % (bar, percent_done, ' %', iter, tot_iter))
     sys.stdout.flush()
+
 
 def addIntoOutput(out, identifier, tab):
     out[identifier] = []
     for element in tab:
         out[identifier].append(element)
-    return out
+
 
 def serializeBodyData(body_data):
     """Serialize BodyData into a JSON like structure"""
@@ -93,10 +91,11 @@ def serializeBodyData(body_data):
     out["unique_object_id"] = str(body_data.unique_object_id)
     out["tracking_state"] = str(body_data.tracking_state)
     out["action_state"] = str(body_data.action_state)
+    out["confidence"] = body_data.confidence
+
     addIntoOutput(out, "position", body_data.position)
     addIntoOutput(out, "velocity", body_data.velocity)
     addIntoOutput(out, "bounding_box_2d", body_data.bounding_box_2d)
-    out["confidence"] = body_data.confidence
     addIntoOutput(out, "bounding_box", body_data.bounding_box)
     addIntoOutput(out, "dimensions", body_data.dimensions)
     addIntoOutput(out, "keypoint_2d", body_data.keypoint_2d)
@@ -109,7 +108,9 @@ def serializeBodyData(body_data):
     addIntoOutput(out, "local_position_per_joint", body_data.local_position_per_joint)
     addIntoOutput(out, "local_orientation_per_joint", body_data.local_orientation_per_joint)
     addIntoOutput(out, "global_root_orientation", body_data.global_root_orientation)
+
     return out
+
 
 def serializeBodies(bodies):
     """Serialize Bodies objects into a JSON like structure"""
@@ -122,6 +123,7 @@ def serializeBodies(bodies):
         out["body_list"].append(serializeBodyData(sk))
     return out
 
+
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.ndarray):
@@ -132,10 +134,11 @@ class NumpyEncoder(json.JSONEncoder):
 if __name__ == "__main__":
     # CLI arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input_svo_file', type=str, help='Path to an .svo file, if you want to replay it',default = '')
-    parser.add_argument('--ip_address', type=str, help='IP Adress, in format a.b.c.d:port or a.b.c.d, if you have a streaming setup', default = '')
-    parser.add_argument('--resolution', type=str, help='Resolution, can be either HD2K, HD1200, HD1080, HD720, SVGA or VGA', default = '')
-    parser.add_argument('--display', type=str, help='Visualize keypoints while processing, can be either True of False', default = False)
+    parser.add_argument('--input_svo_file',    type=str,   help='Path to an .svo file, if you want to replay it',                               required=True)
+    parser.add_argument('--output_json_path',  type=str,   help='Location to store the output .json file',                                      required=True)
+    parser.add_argument('--ip_address',        type=str,   help='IP Adress, in format a.b.c.d:port or a.b.c.d, if you have a streaming setup',  default = '')
+    parser.add_argument('--resolution',        type=str,   help='Resolution, can be either HD2K, HD1200, HD1080, HD720, SVGA or VGA',           default = '')
+    parser.add_argument('--display',           type=bool,  help='Visualize keypoints while processing, can be either True of False',            default = False)
     opt = parser.parse_args()
 
     # common parameters
@@ -196,20 +199,17 @@ if __name__ == "__main__":
                 viewer.update_view(image, bodies)
 
         # Display progress
-        progress_bar(svo_position, nb_frames, 30)
+        progress_bar(svo_position, nb_frames)
 
         if err == sl.ERROR_CODE.END_OF_SVOFILE_REACHED:
-            progress_bar(nb_frames, nb_frames, 30)
+            progress_bar(nb_frames, nb_frames)
             sys.stdout.write("\nSVO end has been reached. Exiting now.\n")
             break
 
-        # if svo_position == 500:
-        #     break
-
     # Save data into JSON file:
-    filename = opt.input_svo_file.split("/")[-1].split(".")[0] + "_temp.json"
-    path = "../data_raw/"
-    file_sk = open(path + filename, 'w')
+    filename = opt.input_svo_file.split("/")[-1].split(".")[0] + ".json"
+    json_file_path = os.path.join(opt.output_json_path, filename)
+    file_sk = open(json_file_path, "w")
     sys.stdout.write("Saving to JSON file...\n")
     file_sk.write(json.dumps(skeleton_file_data, cls=NumpyEncoder, indent=2))
     sys.stdout.write("Saving to JSON file... COMPLETED.\n")

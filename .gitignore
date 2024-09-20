@@ -7,3 +7,6 @@
 
 # run files
 *.run
+
+# Python pycache
+__pycache__/
